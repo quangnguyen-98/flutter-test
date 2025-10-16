@@ -1,0 +1,382 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, stg]
+    tags: ['v*']
+  pull_request:
+    branches: [main, stg]
+
+env:
+  FLUTTER_VERSION: '3.24.5'
+  JAVA_VERSION: '17'
+
+jobs:
+  # ============================================================================
+  # Stage 1: Code Quality
+  # ============================================================================
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Flutter Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Dart Format Check
+        run: dart format --set-exit-if-changed .
+
+  # ============================================================================
+  # Stage 2: Security Scanning
+  # ============================================================================
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    # OPTIMIZED: Run in parallel with quality (no dependency)
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |
+            --lockfile=pubspec.lock
+            --format=json
+            --output=osv-report.json
+        continue-on-error: true
+
+      - name: Upload OSV Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-security-report
+          path: osv-report.json
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 3: Testing
+  # ============================================================================
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+    needs: [quality, security]  # Wait for BOTH quality and security to pass
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Generate Code (build_runner)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Run Unit Tests with Coverage
+        run: flutter test --coverage --reporter=expanded
+
+      - name: Check Coverage Threshold
+        uses: VeryGoodOpenSource/very_good_coverage@v3
+        with:
+          min_coverage: 0  # Start with 0, increase gradually
+          path: coverage/lcov.info
+          exclude: |
+            **/*.g.dart
+            **/*.freezed.dart
+            **/generated/**
+            **/l10n/**
+        continue-on-error: false
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 4: Build Android APK
+  # ============================================================================
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'  # Only run on push events (not PRs)
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Generate Code (build_runner)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-app-release-${{ github.sha }}.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+  # ============================================================================
+  # Stage 5: Deploy to Staging
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stg'
+    environment: staging
+    steps:
+      - name: Verify Environment Configuration
+        run: |
+          echo "=========================================="
+          echo "🔧 STAGING ENVIRONMENT VERIFICATION"
+          echo "=========================================="
+          echo "Environment: staging"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "Secrets/Variables loaded from environment:"
+          echo "  - FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID != '' && '✅ Present' || '❌ Missing' }}"
+          echo "  - FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' && '✅ Present' || '❌ Missing' }}"
+          echo "  - SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL != '' && '✅ Present' || '❌ Missing' }}"
+          echo "=========================================="
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qr-app-release-${{ github.sha }}.apk
+          path: ./artifacts
+
+      - name: Deploy to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: staging-testers
+          file: ./artifacts/app-release.apk
+          releaseNotes: |
+            Version: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Build: Staging Release
+
+      - name: Notify Success
+        if: ${{ success() }}
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "✅ [STAGING] QR App deployed successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*QR App* deployed to *🔧 STAGING*\n*Commit:* ${{ github.sha }}\n*Branch:* stg"
+                  }
+                }
+              ]
+            }'
+
+      - name: Notify Failure
+        if: ${{ failure() }}
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "❌ [STAGING] QR App deployment FAILED",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*QR App* deployment to *🔧 STAGING* FAILED\n*Check:* https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }'
+
+  # ============================================================================
+  # Stage 6: Deploy to Production
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    environment: production
+    steps:
+      - name: Verify Environment Configuration
+        run: |
+          echo "=========================================="
+          echo "🚀 PRODUCTION ENVIRONMENT VERIFICATION"
+          echo "=========================================="
+          echo "Environment: production"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Is Tag: ${{ startsWith(github.ref, 'refs/tags/v') }}"
+          echo ""
+          echo "Secrets/Variables loaded from environment:"
+          echo "  - FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID != '' && '✅ Present' || '❌ Missing' }}"
+          echo "  - FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' && '✅ Present' || '❌ Missing' }}"
+          echo "  - SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL != '' && '✅ Present' || '❌ Missing' }}"
+          echo "=========================================="
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qr-app-release-${{ github.sha }}.apk
+          path: ./artifacts
+
+      - name: Deploy to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: production-users
+          file: ./artifacts/app-release.apk
+          releaseNotes: |
+            Version: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Build: Production Release
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: ./artifacts/app-release.apk
+          body: |
+            ## QR App Release ${{ github.ref_name }}
+
+            Released to production at $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+
+      - name: Notify Success
+        if: ${{ success() }}
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "🚀 [PRODUCTION] QR App deployed successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*QR App* deployed to *🚀 PRODUCTION*\n*Version:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }'
+
+      - name: Notify Failure
+        if: ${{ failure() }}
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "❌ [PRODUCTION] QR App deployment FAILED",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*QR App* deployment to *🚀 PRODUCTION* FAILED\n*Check:* https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }'
+
+  # ============================================================================
+  # Stage 7: CI/CD Success Gate
+  # ============================================================================
+  ci-cd-success:
+    name: CI/CD Success
+    runs-on: ubuntu-latest
+    # FIXED: Must check ALL stages including deploy
+    needs: [quality, security, test, build, deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: Check All Jobs Status
+        run: |
+          echo "=== CI/CD Pipeline Status ==="
+          echo "Quality:     ${{ needs.quality.result }}"
+          echo "Security:    ${{ needs.security.result }}"
+          echo "Test:        ${{ needs.test.result }}"
+          echo "Build:       ${{ needs.build.result }}"
+          echo "Deploy-Stg:  ${{ needs.deploy-staging.result }}"
+          echo "Deploy-Prod: ${{ needs.deploy-production.result }}"
+          echo ""
+
+          # Check required stages (always run)
+          if [[ "${{ needs.quality.result }}" != "success" ]] || \
+             [[ "${{ needs.security.result }}" != "success" ]] || \
+             [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "❌ CI/CD Failed: Required stages failed"
+            exit 1
+          fi
+
+          # Check build stage (only runs on push)
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if [[ "${{ needs.build.result }}" != "success" ]]; then
+              echo "❌ CI/CD Failed: Build stage failed"
+              exit 1
+            fi
+
+            # Check deploy stages (conditional based on branch)
+            if [[ "${{ needs.deploy-staging.result }}" == "failure" ]] || \
+               [[ "${{ needs.deploy-production.result }}" == "failure" ]]; then
+              echo "❌ CI/CD Failed: Deployment stage failed"
+              exit 1
+            fi
+          fi
+
+          echo "✅ CI/CD Passed"
