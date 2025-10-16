@@ -49,13 +49,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install OSV Scanner
+        run: |
+          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 \
+            -o osv-scanner
+          chmod +x osv-scanner
+          sudo mv osv-scanner /usr/local/bin/
+        shell: bash
+
       - name: Run OSV Scanner
-        uses: google/osv-scanner-action@v1
-        with:
-          scan-args: |
-            --lockfile=pubspec.lock
-            --format=json
-            --output=osv-report.json
+        run: |
+          osv-scanner --lockfile=pubspec.lock --format=json --output=osv-report.json || true
         continue-on-error: true
 
       - name: Upload OSV Report

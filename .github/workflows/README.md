@@ -31,7 +31,7 @@ Stage 6: Deploy to Production (Firebase App Distribution + GitHub Release)
 - **OSV Scanner**: Google-maintained vulnerability scanner for pubspec.lock
   - Scans against OSV database (Open Source Vulnerabilities)
   - Free and open source
-  - GitHub Action: `google/osv-scanner-action@v1`
+  - CLI tool installed directly from GitHub releases
 
 ### Testing
 - **flutter test**: Built-in test runner
