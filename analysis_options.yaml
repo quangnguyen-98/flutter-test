@@ -1,8 +1,47 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
+  errors:
+    missing_required_param: error
+    missing_return: error
+    invalid_annotation_target: ignore
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/generated/**"
+    - "build/**"
+
 linter:
   rules:
+    # Naming
     prefer_single_quotes: true
+
+    # Formatting
     require_trailing_commas: true
     sort_constructors_first: true
     sort_unnamed_constructors_first: true
+
+    # Best Practices
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    use_key_in_widget_constructors: true
+
+    # Performance
+    avoid_print: true
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
+
+    # Safety
+    always_use_package_imports: true
+    avoid_relative_lib_imports: true
+
+    # Code Quality
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    avoid_redundant_argument_values: true
+    unnecessary_null_checks: true
