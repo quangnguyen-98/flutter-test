@@ -1,0 +1,16 @@
+{
+  "app_title": "MPS SmartTab QR",
+  "qr_title": "Thanh toán bằng PayPay",
+  "qr_instruction": "Vui lòng quét mã QR bằng ứng dụng PayPay",
+  "amount_label": "Số tiền thanh toán",
+  "waiting_payment": "Đang chờ thanh toán...",
+  "processing_payment": "Đang xử lý thanh toán...",
+  "payment_success": "Thanh toán thành công",
+  "payment_failed": "Thanh toán thất bại",
+  "payment_timeout": "Thanh toán hết thời gian",
+  "cancel_payment": "Hủy",
+  "retry_payment": "Thử lại",
+  "loading": "Đang tải...",
+  "error_qr_generation": "Không thể tạo mã QR",
+  "error_network": "Lỗi kết nối mạng"
+}

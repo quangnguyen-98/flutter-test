@@ -1,0 +1,49 @@
+name: qr_app
+description: MPS SmartTab QR App - PayPay QR code display interface
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # State management
+  flutter_riverpod: ^2.4.9
+  
+  # WebView
+  webview_flutter: ^4.4.2
+  
+  # HTTP requests
+  http: ^1.1.2
+  
+  # URL launching
+  url_launcher: ^6.2.1
+  
+  # Internationalization
+  intl: ^0.20.2
+  
+  # JSON serialization
+  json_annotation: ^4.8.0
+
+  app_links: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mockito: ^5.4.3
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/i18n/
+  
+  generate: true

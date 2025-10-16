@@ -1,0 +1,16 @@
+{
+  "app_title": "MPS SmartTab QR",
+  "qr_title": "Pay with PayPay",
+  "qr_instruction": "Please scan the QR code with your PayPay app",
+  "amount_label": "Payment Amount",
+  "waiting_payment": "Waiting for payment...",
+  "processing_payment": "Processing payment...",
+  "payment_success": "Payment completed successfully",
+  "payment_failed": "Payment failed",
+  "payment_timeout": "Payment timeout",
+  "cancel_payment": "Cancel",
+  "retry_payment": "Retry",
+  "loading": "Loading...",
+  "error_qr_generation": "Failed to generate QR code",
+  "error_network": "Network error occurred"
+}

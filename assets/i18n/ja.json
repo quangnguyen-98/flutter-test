@@ -1,0 +1,16 @@
+{
+  "app_title": "MPS SmartTab QR",
+  "qr_title": "PayPayで支払う",
+  "qr_instruction": "QRコードをPayPayアプリでスキャンしてください",
+  "amount_label": "お支払い金額",
+  "waiting_payment": "お支払いをお待ちしています...",
+  "processing_payment": "支払い処理中...",
+  "payment_success": "お支払いが完了しました",
+  "payment_failed": "お支払いに失敗しました",
+  "payment_timeout": "お支払いがタイムアウトしました",
+  "cancel_payment": "キャンセル",
+  "retry_payment": "再試行",
+  "loading": "読み込み中...",
+  "error_qr_generation": "QRコードの生成に失敗しました",
+  "error_network": "ネットワークエラーが発生しました"
+}

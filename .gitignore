@@ -47,13 +47,3 @@ app.*.map.json
 # FVM Version Cache
 .fvm/
 .fvmrc
-
-# CI/CD Artifacts
-coverage/
-osv-report.json
-*.apk
-*.aab
-
-# Test generated files
-test/fixtures/
-test/mocks/*.mocks.dart
