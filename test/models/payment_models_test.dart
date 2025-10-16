@@ -46,7 +46,8 @@ void main() {
 
   group('PaymentStatus', () {
     test('should parse status strings correctly', () {
-      expect(PaymentStatus.fromString('SUCCESS'), PaymentStatus.success);
+      expect(PaymentStatus.fromString('SUCCESS'), PaymentStatus.completed);
+      expect(PaymentStatus.fromString('COMPLETED'), PaymentStatus.completed);
       expect(PaymentStatus.fromString('FAILED'), PaymentStatus.failed);
       expect(PaymentStatus.fromString('ERROR'), PaymentStatus.failed);
       expect(PaymentStatus.fromString('TIMEOUT'), PaymentStatus.timeout);
@@ -57,7 +58,7 @@ void main() {
     });
 
     test('should return correct API values', () {
-      expect(PaymentStatus.success.apiValue, 'SUCCESS');
+      expect(PaymentStatus.completed.apiValue, 'SUCCESS');
       expect(PaymentStatus.failed.apiValue, 'ERROR');
       expect(PaymentStatus.timeout.apiValue, 'TIMEOUT');
       expect(PaymentStatus.cancelled.apiValue, 'CANCEL');

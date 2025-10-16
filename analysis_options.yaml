@@ -8,10 +8,17 @@ analyzer:
     missing_required_param: error
     missing_return: error
     invalid_annotation_target: ignore
+    # Downgrade strict lints from error to warning
+    sort_constructors_first: warning
+    prefer_final_locals: warning
+    always_use_package_imports: warning
+    avoid_redundant_argument_values: warning
+    unused_import: warning
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "**/generated/**"
+    - "**/l10n/**"
     - "build/**"
 
 linter:

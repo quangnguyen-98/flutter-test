@@ -139,15 +139,18 @@ enum PaymentStatus {
       case 'PENDING':
         return PaymentStatus.pending;
       case 'COMPLETED':
+      case 'SUCCESS':
         return PaymentStatus.completed;
       case 'FAILED':
+      case 'ERROR':
         return PaymentStatus.failed;
       case 'CANCELLED':
+      case 'CANCEL':
         return PaymentStatus.cancelled;
       case 'TIMEOUT':
         return PaymentStatus.timeout;
       default:
-        return PaymentStatus.failed;  // Default to failed for unknown status
+        return PaymentStatus.pending;  // Default to pending for unknown status
     }
   }
 
@@ -156,11 +159,11 @@ enum PaymentStatus {
       case PaymentStatus.pending:
         return 'PENDING';
       case PaymentStatus.completed:
-        return 'COMPLETED';
+        return 'SUCCESS';
       case PaymentStatus.failed:
-        return 'FAILED';
+        return 'ERROR';
       case PaymentStatus.cancelled:
-        return 'CANCELLED';
+        return 'CANCEL';
       case PaymentStatus.timeout:
         return 'TIMEOUT';
     }
